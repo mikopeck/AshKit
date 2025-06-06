@@ -1,6 +1,7 @@
 # utils.py
 import json
 import os
+from typing import List, Dict, Any
 
 TASKS_FILE = os.path.join("data", "tasks.json")
 STRATEGIES_FILE = os.path.join("data", "strategies.json")
@@ -57,3 +58,14 @@ def load_results_log(log_file_path):
                 except json.JSONDecodeError:
                     print(f"Skipping malformed line in log: {line.strip()}")
     return sorted(results, key=lambda x: x.get("timestamp", ""), reverse=True)
+
+def append_results_to_log(results_list: List[Dict[str, Any]], log_file_path: str):
+    """Appends a list of result dictionaries to the JSONL log file."""
+    if not results_list:
+        return
+    try:
+        with open(log_file_path, "a", encoding='utf-8') as f:
+            for result in results_list:
+                f.write(json.dumps(result) + "\n")
+    except IOError as e:
+        print(f"Error appending results to log file {log_file_path}: {e}")

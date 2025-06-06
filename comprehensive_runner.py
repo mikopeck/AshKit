@@ -37,6 +37,7 @@ def update_log(state: ComprehensiveRunState, new_message: str):
     """Helper to update the log in both state and UI."""
     state["run_log"].append(new_message)
     if state.get("log_placeholder"):
+        # The join with "  \n" creates a markdown line break for better spacing
         state["log_placeholder"].markdown("  \n".join(state["run_log"]))
 
 def probing_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
@@ -71,7 +72,6 @@ def analysis_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
     if state.get("was_stopped"): return state
     update_log(state, "\n**Stage 2: Analysis** - Identifying the best 4 strategies...")
     
-    # Filter out errored runs (rating == -1) before scoring
     valid_results = [r for r in state["probing_results"] if r.get("final_rating", -1) != -1]
     
     if not valid_results:
@@ -79,7 +79,6 @@ def analysis_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
         state["top_4_strategies"] = []
         return state
 
-    # Sort strategies based on the highest rating they achieved
     sorted_strategies = sorted(state["all_strategies"], key=lambda s: max([r.get("final_rating", -1) for r in valid_results if r.get("strategy_id") == s["id"]], default=-1), reverse=True)
     top_4 = sorted_strategies[:4]
     
@@ -123,7 +122,13 @@ Description B: {strat_b['description']}"""
         raw_combo_response = query_ollama_model(model_name=state["model_config"]["crafter_model_name"], prompt=prompt_for_combiner, system_message=COMBINATION_CRAFTER_PROMPT)
         match = re.search(r'<prompt>(.*?)</prompt>', raw_combo_response, re.DOTALL)
         clean_prompt = match.group(1).strip() if match else raw_combo_response
-        combined_prompts.append({"combo_name": combo_name, "prompt": clean_prompt, "source_strategies": [strat_a['id'], strat_b['id']]})
+        
+        combined_prompts.append({
+            "combo_name": combo_name,
+            "prompt": clean_prompt,
+            "source_strategies": [strat_a['id'], strat_b['id']],
+            "creator_prompt_for_combination": prompt_for_combiner
+        })
         
     state["combined_prompts"] = combined_prompts
     if not state.get("was_stopped"): update_log(state, "✅ Combination stage complete.")
@@ -145,11 +150,11 @@ def assault_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
             
         update_log(state, f"  - Running combined attack '{combo['combo_name']}'...")
         
-        # This part interacts with the UI directly, similar to run_single_jailbreak_attempt
         ui_placeholders = state.get("ui_monitor_placeholders")
         if ui_placeholders:
-            ui_placeholders["crafter_status"].empty() # Clear crafter status
-            ui_placeholders["prompt_display"].markdown(f"** COMBINED Jailbreak Prompt:**\n```\n{combo['prompt']}\n```")
+            # Clear previous step's details
+            for k in ui_placeholders: ui_placeholders[k].empty()
+            ui_placeholders["prompt_display"].markdown(f"**COMBINED Jailbreak Prompt:**\n```\n{combo['prompt']}\n```")
             ui_placeholders["target_status"].info(f"🎯 Target model is processing...")
         
         target_response = query_ollama_model(state["model_config"]["target_model_name"], combo["prompt"])
@@ -164,13 +169,13 @@ def assault_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
             verdict_color = "red" if rating >= 7 else "orange" if rating >= 4 else "green"
             ui_placeholders["verdict_display"].markdown(f"**⚖️ Judge's Rating:** :{verdict_color}[{rating}/10]\n\n**Reasoning:** {reasoning}")
         
-        # Create a result object that matches the log format
         final_result = {
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "task_id": state["task"]["id"],
             "task_prompt": state["task"]["prompt"],
             "strategy_id": "+".join(combo['source_strategies']),
             "strategy_name": combo['combo_name'],
+            "creator_prompt_for_combination": combo.get("creator_prompt_for_combination"),
             "target_model_name": state["model_config"]["target_model_name"],
             "judge_model_name": state["model_config"]["judge_model_name"],
             "crafter_model_name": "CombinationCrafter",

@@ -2,17 +2,16 @@
 import streamlit as st
 import pandas as pd
 import uuid
-import numpy as np
 import json
 
-from utils import load_tasks, load_strategies, add_strategy, add_task, load_results_log
+from utils import load_tasks, load_strategies, add_strategy, add_task, load_results_log, append_results_to_log
 from graph_runner import run_single_jailbreak_attempt
 import comprehensive_runner
 from visuals import update_visuals
 
 st.set_page_config(layout="wide", page_title="AshKit")
 
-st.title("🪓 AshKit: LLM Red Teaming Toolkit")
+st.title("🔬 AshKit: LLM Red Teaming Toolkit")
 st.caption("A workbench for red teaming LLMs with two modes: broad model profiling and focused attacks.")
 
 # --- Session State & Callbacks ---
@@ -63,7 +62,7 @@ with st.sidebar:
             else: st.warning("Please fill all fields for the new strategy.")
     with st.expander("View Available Strategies", expanded=False):
         for strat in st.session_state.get('strategies', []):
-             st.markdown(f"**{strat['name']}** (`{strat['id']}`): {strat.get('description', 'N/A')}")
+              st.markdown(f"**{strat['name']}** (`{strat['id']}`): {strat.get('description', 'N/A')}")
 
 
 # --- Main Area ---
@@ -126,11 +125,17 @@ with attack_tab:
         attack_status_container = st.container(border=True)
         with attack_status_container:
             st.subheader("🔴 Live Attack Monitor")
-            ui_placeholders = {
-                "crafter_status": st.empty(), "prompt_display": st.empty(), "target_status": st.empty(),
-                "response_display": st.empty(), "judge_status": st.empty(), "verdict_display": st.empty()
-            }
+            
+            # FIX: Moved log_placeholder to the top for the overall summary
             log_placeholder = st.empty()
+            
+            # FIX: Created a new inner container for the details of the current step
+            detail_container = st.container(border=True)
+            with detail_container:
+                ui_placeholders = {
+                    "crafter_status": st.empty(), "prompt_display": st.empty(), "target_status": st.empty(),
+                    "response_display": st.empty(), "judge_status": st.empty(), "verdict_display": st.empty()
+                }
 
         initial_state = comprehensive_runner.ComprehensiveRunState(
             task=task_to_run, all_strategies=st.session_state.strategies, model_config=model_config,
@@ -146,21 +151,34 @@ with attack_tab:
         else: st.success("Task-Focused Attack Finished!")
 
         all_new_results = final_state.get("probing_results", []) + final_state.get("final_assault_results", [])
-        st.session_state.results.extend(all_new_results)
         
+        if all_new_results:
+            append_results_to_log(all_new_results, "results/jailbreak_log.jsonl")
+
+        st.session_state.results.extend(all_new_results)
+        st.session_state.results = sorted(st.session_state.results, key=lambda x: x.get("timestamp", ""), reverse=True)
+
         # --- Display the best result ---
         if all_new_results:
-            best_result = max(all_new_results, key=lambda x: x.get("final_rating", -1))
-            st.markdown("---")
-            st.header("🏆 Most Effective Attack")
-            if best_result and best_result.get("final_rating", -1) > 0:
-                st.subheader(f"Strategy: `{best_result.get('strategy_name', 'N/A')}` | Rating: `{best_result.get('final_rating')}/10`")
+            successful_results = [r for r in all_new_results if r.get("final_rating", -1) > 0]
+            if successful_results:
+                best_result = max(successful_results, key=lambda x: x.get("final_rating", -1))
+                st.markdown("---")
+                st.header("🏆 Most Effective Attack Found")
+                st.subheader(f"Strategy: `{best_result.get('strategy_name', 'N/A')}` | Final Rating: `{best_result.get('final_rating')}/10`")
+                
                 with st.container(border=True):
                     st.markdown("**Winning Jailbreak Prompt:**")
                     st.code(best_result.get("crafted_jailbreak_prompt"), language=None)
+                
+                if best_result.get("creator_prompt_for_combination"):
+                    with st.expander("See how this prompt was created (Instructions for Combination Crafter)"):
+                        st.code(best_result.get("creator_prompt_for_combination"), language='text')
+
                 with st.container(border=True):
                     st.markdown("**Target's Response:**")
                     st.markdown(best_result.get("target_llm_response", "No response recorded."))
+                
                 with st.container(border=True):
                     st.markdown("**Judge's Verdict:**")
                     st.markdown(f"**Rating:** {best_result.get('final_rating')}/10")
@@ -168,17 +186,15 @@ with attack_tab:
             else:
                 st.warning("No successful jailbreak was found for this task in this run.")
 
-
         st.session_state.running_test = False
         st.rerun()
 
 
 # --- Shared Components (Visuals & Logs) ---
 st.markdown("---")
-st.header("📜 Test Logs & Visualizations")
+st.header("📊 Test Logs & Visualizations")
 
 if not st.session_state.running_test:
-    # Always try to show visuals if not running, placeholder is defined in profiling tab
     update_visuals(visuals_placeholder, st.session_state.results)
 
 
