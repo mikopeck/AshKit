@@ -62,7 +62,12 @@ def probing_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
             ui_placeholders=state.get("ui_monitor_placeholders")
         )
         results.append(result)
-    
+        
+        # FIX: Immediately log the score after the run is complete
+        score = result.get('final_rating', 'Error')
+        score_color = "red" if isinstance(score, int) and score >= 7 else "orange" if isinstance(score, int) and score >= 4 else "green"
+        update_log(state, f"    > Score: :{score_color}[**{score}/10**]")
+
     if not state.get("was_stopped"):
         update_log(state, "✅ Probing stage complete.")
     state["probing_results"] = results
@@ -186,6 +191,11 @@ def assault_stage_node(state: ComprehensiveRunState) -> ComprehensiveRunState:
             "error_message": None,
         }
         results.append(final_result)
+
+        # FIX: Immediately log the score after the run is complete
+        score = final_result.get('final_rating', 'Error')
+        score_color = "red" if isinstance(score, int) and score >= 7 else "orange" if isinstance(score, int) and score >= 4 else "green"
+        update_log(state, f"    > Score: :{score_color}[**{score}/10**]")
 
     if not state.get("was_stopped"): update_log(state, "✅ Final Assault stage complete.")
     state["final_assault_results"] = results
