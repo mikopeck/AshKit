@@ -2,13 +2,13 @@
 setlocal
 
 REM --- Configuration ---
-set VENV_NAME=jailbreak_env
+set VENV_NAME=ashkit_env
 set PYTHON_EXE=python
 set REQUIREMENTS_FILE=requirements.txt
 set APP_TO_RUN=app.py
 
 REM --- Script Start ---
-echo Initializing LLM Jailbreak Testing Workbench Environment...
+echo Initializing AshKit LLM Red Teaming Toolkit Environment...
 
 REM Check if Python is available
 %PYTHON_EXE% --version >nul 2>&1
@@ -52,11 +52,6 @@ REM Run the Streamlit application
 echo Starting Streamlit application: %APP_TO_RUN%...
 echo If the app doesn't open, check your browser or the console for a URL (usually http://localhost:8501)
 streamlit run %APP_TO_RUN%
-
-REM Deactivate is usually not needed here as the script ends, and the venv is tied to the cmd session.
-REM However, if you wanted to do more commands outside the venv after app closes:
-REM echo Application closed. Deactivating virtual environment (if you uncomment the line below).
-REM call "%VENV_NAME%\Scripts\deactivate.bat"
 
 echo Script finished.
 endlocal
