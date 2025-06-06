@@ -6,7 +6,7 @@ import json
 
 from utils import load_tasks, load_strategies, load_results_log, append_results_to_log
 from graph_runner import run_single_jailbreak_attempt
-import evolutionary_runner
+import evolutionary_runner # CHANGED
 from visuals import update_visuals
 from management_page import render_management_page
 
@@ -142,24 +142,49 @@ if page == "🔥 Red Teaming":
 
         # --- SIMULATION RUNNING LOGIC & DISPLAY ---
         if st.session_state.simulation['is_running'] and not st.session_state.simulation['is_paused']:
-            with st.spinner(f"Running Generation {st.session_state.simulation['generation']}..."):
-                new_state, new_results = evolutionary_runner.run_one_generation(st.session_state.simulation, st.session_state.strategies)
-                st.session_state.simulation = new_state
-                if new_results:
-                    append_results_to_log(new_results, "results/jailbreak_log.jsonl")
-                    st.session_state.results.extend(new_results)
-                    st.session_state.results = sorted(st.session_state.results, key=lambda x: x.get("timestamp", ""), reverse=True)
-                
-                if len(st.session_state.simulation.get("solutions", [])) >= 3:
-                    st.session_state.simulation['is_paused'] = True
-                    st.session_state.simulation['is_running'] = False
-                    st.success("Simulation paused: Found 3 solutions!")
-                
-                st.rerun()
+            # Create the live monitor container
+            live_monitor = st.container(border=True)
+            with live_monitor:
+                st.subheader(f"🧬 Running Generation {st.session_state.simulation['generation'] + 1}")
+                progress_text_placeholder = st.empty()
+                progress_bar_placeholder = st.empty()
+                live_stats_cols = st.columns(3)
+                avg_score_placeholder = live_stats_cols[0].empty()
+                top_score_placeholder = live_stats_cols[1].empty()
+                success_rate_placeholder = live_stats_cols[2].empty()
+
+            # Pack placeholders into a dict
+            ui_placeholders = {
+                "progress_text": progress_text_placeholder,
+                "progress_bar": progress_bar_placeholder,
+                "avg_score": avg_score_placeholder,
+                "top_score": top_score_placeholder,
+                "success_rate": success_rate_placeholder,
+            }
+
+            new_state, new_results = evolutionary_runner.run_one_generation(
+                st.session_state.simulation, 
+                st.session_state.strategies,
+                ui_placeholders # Pass the placeholders down
+            )
+            st.session_state.simulation = new_state
+            
+            if new_results:
+                append_results_to_log(new_results, "results/jailbreak_log.jsonl")
+                st.session_state.results.extend(new_results)
+                st.session_state.results = sorted(st.session_state.results, key=lambda x: x.get("timestamp", ""), reverse=True)
+            
+            if len(st.session_state.simulation.get("solutions", [])) >= 3:
+                st.session_state.simulation['is_paused'] = True
+                st.session_state.simulation['is_running'] = False
+                st.success("Simulation paused: Found 3 solutions!")
+            
+            live_monitor.empty()
+            st.rerun()
 
         # --- DISPLAY SIMULATION STATE ---
         if st.session_state.simulation.get('task'):
-            st.header(f"🧬 Live Simulation Status for Task: `{st.session_state.simulation['task']['id']}`")
+            st.header(f"📊 Live Simulation Status for Task: `{st.session_state.simulation['task']['id']}`")
             if st.session_state.simulation['is_paused']:
                 st.success("Simulation Paused")
 
@@ -179,7 +204,7 @@ if page == "🔥 Red Teaming":
                     st.info("Waiting to start simulation...")
 
             with strat_col:
-                st.subheader("📊 Strategy Weights")
+                st.subheader("📈 Strategy Weights")
                 if st.session_state.simulation.get('strategy_weights'):
                     weights = st.session_state.simulation['strategy_weights']
                     df_weights = pd.DataFrame(list(weights.items()), columns=['Strategy', 'Weight']).set_index('Strategy')
