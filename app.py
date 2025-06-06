@@ -6,7 +6,7 @@ import json
 
 from utils import load_tasks, load_strategies, load_results_log, append_results_to_log
 from graph_runner import run_single_jailbreak_attempt
-import evolutionary_runner # CHANGED
+import evolutionary_runner
 from visuals import update_visuals
 from management_page import render_management_page
 
@@ -87,7 +87,7 @@ if page == "🔥 Red Teaming":
 
     with attack_tab:
         st.subheader("Evolve the best jailbreak for a single task.")
-        st.info("This mode uses a genetic algorithm to breed and refine strategies over multiple generations to find solutions.")
+        st.info("This mode uses a genetic algorithm to breed and refine strategies over multiple generations. Every 3 generations, it will attempt to combine the top 2 strategies into a new, hybrid one.")
 
         # --- SIMULATION CONFIGURATION ---
         sim_cfg_col1, sim_cfg_col2 = st.columns([2, 1])
@@ -135,6 +135,7 @@ if page == "🔥 Red Teaming":
                 st.rerun()
             if sim_control_col3.button("🔄 Reset Simulation", use_container_width=True):
                 st.session_state.simulation = evolutionary_runner.initialize_simulation_state()
+                st.session_state.strategies = load_strategies() # Reload original strategies
                 st.info("Simulation has been reset.")
                 st.rerun()
 
@@ -142,7 +143,6 @@ if page == "🔥 Red Teaming":
 
         # --- SIMULATION RUNNING LOGIC & DISPLAY ---
         if st.session_state.simulation['is_running'] and not st.session_state.simulation['is_paused']:
-            # Create the live monitor container
             live_monitor = st.container(border=True)
             with live_monitor:
                 st.subheader(f"🧬 Running Generation {st.session_state.simulation['generation'] + 1}")
@@ -153,7 +153,6 @@ if page == "🔥 Red Teaming":
                 top_score_placeholder = live_stats_cols[1].empty()
                 success_rate_placeholder = live_stats_cols[2].empty()
 
-            # Pack placeholders into a dict
             ui_placeholders = {
                 "progress_text": progress_text_placeholder,
                 "progress_bar": progress_bar_placeholder,
@@ -162,13 +161,17 @@ if page == "🔥 Red Teaming":
                 "success_rate": success_rate_placeholder,
             }
 
-            new_state, new_results = evolutionary_runner.run_one_generation(
+            new_state, new_results, new_strategy = evolutionary_runner.run_one_generation(
                 st.session_state.simulation, 
                 st.session_state.strategies,
-                ui_placeholders # Pass the placeholders down
+                ui_placeholders
             )
             st.session_state.simulation = new_state
             
+            if new_strategy:
+                st.session_state.strategies.append(new_strategy)
+                st.toast(f"✨ New strategy evolved: '{new_strategy['name']}'!", icon="🧬")
+
             if new_results:
                 append_results_to_log(new_results, "results/jailbreak_log.jsonl")
                 st.session_state.results.extend(new_results)
@@ -207,7 +210,13 @@ if page == "🔥 Red Teaming":
                 st.subheader("📈 Strategy Weights")
                 if st.session_state.simulation.get('strategy_weights'):
                     weights = st.session_state.simulation['strategy_weights']
-                    df_weights = pd.DataFrame(list(weights.items()), columns=['Strategy', 'Weight']).set_index('Strategy')
+                    # Display only strategies that are in the current session_state
+                    active_strategies = {s['id']: s['name'] for s in st.session_state.strategies}
+                    df_weights_data = {
+                        "Strategy": [active_strategies.get(sid, sid) for sid in weights.keys() if sid in active_strategies],
+                        "Weight": [w for sid, w in weights.items() if sid in active_strategies]
+                    }
+                    df_weights = pd.DataFrame(df_weights_data).set_index('Strategy')
                     st.bar_chart(df_weights)
                 else:
                     st.info("Weights will appear after the first generation.")
