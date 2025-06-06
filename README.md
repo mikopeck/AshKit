@@ -26,8 +26,7 @@ Before you begin, ensure you have the following installed:
 2.  **Ollama:** Installed and running. Download from [ollama.com](https://ollama.com/).
 3.  **Ollama Models:** Download the LLMs you intend to use. For example:
     ```bash
-    ollama pull llama3
-    ollama pull mistral
+    ollama pull qwen3:8b
     ```
 
 ---
