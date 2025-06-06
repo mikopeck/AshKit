@@ -96,7 +96,7 @@ def run_single_jailbreak_attempt_for_comprehensive(
     
     # Just construct the dictionary, don't write it to the file
     result_dict = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "task_id": task.get("id"),
         "task_prompt": task.get("prompt"),
         "strategy_id": strategy.get("id"),
