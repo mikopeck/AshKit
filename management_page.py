@@ -11,9 +11,8 @@ def render_management_page(crafter_model_name: str):
     """Renders the entire data management page."""
     
     st.header("🗂️ Manage Tasks and Strategies")
-    st.info("Here you can add, edit, delete, and combine your testing data.")
+    st.info("Here you can add, edit, delete, and combine your testing data. Strategies evolved by the Discovery Engine will appear here automatically.")
 
-    # Initialize session state for editing forms
     if 'editing_task_id' not in st.session_state:
         st.session_state.editing_task_id = None
     if 'editing_strategy_id' not in st.session_state:
@@ -121,7 +120,7 @@ def manage_strategies(crafter_model_name: str):
                 st.error(str(e))
 
     st.markdown("---")
-    st.subheader("Combine Strategies")
+    st.subheader("Combine Strategies Manually")
     with st.container(border=True):
         st.write("Select two strategies and provide a sample harmful task to guide the combination process.")
         strategy_options = {s['id']: f"{s['name']} ({s['id']})" for s in st.session_state.strategies}
@@ -137,7 +136,7 @@ def manage_strategies(crafter_model_name: str):
             else:
                 strat_a = next(s for s in st.session_state.strategies if s['id'] == strat_a_id)
                 strat_b = next(s for s in st.session_state.strategies if s['id'] == strat_b_id)
-                with st.spinner("🤖 Crafter LLM is combining strategies..."):
+                with st.spinner("🧠 Crafter LLM is combining strategies..."):
                     try:
                         st.session_state.new_combined_strat = combine_and_craft_strategy(strat_a, strat_b, sample_task, crafter_model_name)
                         st.rerun()
@@ -167,6 +166,11 @@ def manage_strategies(crafter_model_name: str):
     st.subheader("Existing Strategies")
     for strat in st.session_state.strategies:
         with st.expander(f"**{strat['name']}** (`{strat['id']}`)"):
+            
+            # NEW: Display the source of evolved strategies
+            if 'source_strategies' in strat and strat['source_strategies']:
+                st.caption(f"Evolved from: `{'` + `'.join(strat['source_strategies'])}`")
+
             st.markdown(f"**Description:** {strat.get('description', 'N/A')}")
             st.markdown("**Instructions for Crafter:**")
             st.code(strat.get('instructions_for_crafter', 'N/A'), language=None)
