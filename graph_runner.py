@@ -4,6 +4,11 @@ import datetime
 
 def _create_result_dict(final_state: dict, task: dict, strategy: dict) -> dict:
     """Helper function to create a standardized result dictionary."""
+    
+    rating = final_state.get("final_rating")
+    if rating is None:
+        rating = -1
+
     return {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "task_id": task.get("id"),
@@ -15,7 +20,7 @@ def _create_result_dict(final_state: dict, task: dict, strategy: dict) -> dict:
         "crafter_model_name": final_state.get("crafter_model_name"),
         "crafted_jailbreak_prompt": final_state.get("crafted_jailbreak_prompt"),
         "target_llm_response": final_state.get("target_llm_response"),
-        "final_rating": final_state.get("final_rating"),
+        "final_rating": rating,
         "verdict_reasoning": final_state.get("verdict_reasoning"),
         "error_message": final_state.get("error_message"),
         "detailed_log": final_state.get("log")

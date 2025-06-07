@@ -35,7 +35,6 @@ with st.sidebar:
     judge_model_name = st.text_input("Judge Model", value="qwen3:8b")
     st.markdown("---")
     
-    # FIX: Replaced radio buttons with a selectbox for cleaner navigation
     page = st.selectbox("Navigation", ["🔥 Red Teaming", "🗂️ Manage Data"])
     st.markdown("---")
     st.info("AshKit is an open-source tool for LLM vulnerability research. Use it ethically and responsibly.")
@@ -60,7 +59,7 @@ if page == "🔥 Red Teaming":
                 st.session_state.stop_run = False
                 st.rerun()
 
-        # --- VISUALS & LOGS DISPLAY (NOW PERSISTENT) ---
+        # --- VISUALS & LOGS DISPLAY (PERSISTENT) ---
         visuals_placeholder = st.empty()
         if st.session_state.results:
             update_visuals(visuals_placeholder, st.session_state.results)
@@ -136,7 +135,7 @@ if page == "🔥 Red Teaming":
                 help="The engine will evolve new strategies if the active pool is smaller than this."
             )
 
-        # --- NEW PAUSE/RESUME/STOP CONTROLS ---
+        # --- PAUSE/RESUME/STOP CONTROLS ---
         st.markdown("---")
         ctrl_cols = st.columns(3)
         if not is_sim_active:
@@ -178,7 +177,6 @@ if page == "🔥 Red Teaming":
             
             status_container = st.container()
 
-            # Live progress during a run
             live_display_container = st.container(border=True)
             with live_display_container:
                 progress_text_ph = st.empty()
@@ -196,12 +194,10 @@ if page == "🔥 Red Teaming":
 
             res_col, strat_col = st.columns([3, 2])
             
-            # --- ADDED: SIMULATION EXECUTION LOGIC ---
             if st.session_state.simulation.get('is_running'):
                 sim_state = st.session_state.simulation
                 all_strategies = st.session_state.strategies
 
-                # Setup UI placeholders for the evolutionary runner
                 ui_placeholders = {
                     "progress_text": progress_text_ph,
                     "progress_bar": progress_bar_ph,
@@ -210,28 +206,26 @@ if page == "🔥 Red Teaming":
                     "success_rate": success_rate_ph
                 }
 
-                # Run one generation
                 new_state, new_results, newly_saved = evolutionary_runner.run_one_generation(sim_state, all_strategies, ui_placeholders)
 
-                # Update state
                 st.session_state.simulation = new_state
-                st.session_state.strategies.extend(newly_saved)
+                
+                # BUGFIX: Do not extend the strategies list here. 
+                # The runner already appends the new strategy to the list by reference.
+                # Extending it again creates the duplicate that causes the key error.
+                # st.session_state.strategies.extend(newly_saved)
 
-                # Log new results and update UI data
                 if new_results:
                     append_results_to_log(new_results, "results/jailbreak_log.jsonl")
                     st.session_state.results = load_results_log("results/jailbreak_log.jsonl")
 
-                # Auto-pause if all solutions are found
                 if len(st.session_state.simulation.get('solutions', [])) >= st.session_state.simulation.get('solutions_to_find', 3):
                     st.session_state.simulation['is_running'] = False
                     st.session_state.simulation['is_paused'] = True
                     st.toast("Target number of solutions found. Pausing.")
 
-                time.sleep(1) # Small delay to make UI responsive
+                time.sleep(1) 
                 st.rerun()
 
-
-# FIX: Added routing to render the management page when selected.
 elif page == "🗂️ Manage Data":
     render_management_page(crafter_model_name)
