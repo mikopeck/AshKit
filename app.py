@@ -84,7 +84,7 @@ if page == "🔥 Red Teaming":
                     progress_bar.progress(current_run_num / total_runs, text=progress_text)
                     
                     with live_monitor_container:
-                        st.markdown(f"--- \n#### 🔬 Running Test {current_run_num}/{total_runs}")
+                        st.markdown(f"--- \n#### 🏃‍♂️ Running Test {current_run_num}/{total_runs}")
                         ui_placeholders = {"crafter_status": st.empty(), "prompt_display": st.empty(), "target_status": st.empty(), "response_display": st.empty(), "judge_status": st.empty(), "verdict_display": st.empty()}
                         
                         result = run_single_jailbreak_attempt(
@@ -113,6 +113,7 @@ if page == "🔥 Red Teaming":
             st.session_state.stop_run = False
             st.rerun()
 
+    # --- START OF CORRECTED ATTACK TAB ---
     with attack_tab:
         st.subheader("Evolve the best jailbreak for a single task.")
         st.info("This mode uses a genetic algorithm to breed and refine strategies over multiple generations. Every 3 generations, it will attempt to combine the top 2 strategies into a new, hybrid one.")
@@ -132,7 +133,7 @@ if page == "🔥 Red Teaming":
         with sim_cfg_col2:
             pool_size = st.number_input(
                 "Pool Size per Generation", 
-                min_value=2, max_value=100, value=20, 
+                min_value=2, max_value=100, value=14, # Set your default here
                 disabled=is_sim_active,
                 help="Number of jailbreaks to generate and test in each generation."
             )
@@ -176,54 +177,33 @@ if page == "🔥 Red Teaming":
 
         st.markdown("---")
 
-        # --- SIMULATION RUNNING LOGIC & DISPLAY ---
-        if st.session_state.simulation['is_running'] and not st.session_state.simulation['is_paused']:
-            live_monitor = st.container(border=True)
-            with live_monitor:
-                st.subheader(f"🧬 Running Generation {st.session_state.simulation['generation'] + 1}")
-                ui_placeholders = {
-                    "progress_text": st.empty(), "progress_bar": st.empty(),
-                    "avg_score": st.columns(3)[0].empty(), "top_score": st.columns(3)[1].empty(),
-                    "success_rate": st.columns(3)[2].empty(),
-                }
-
-            new_state, new_results, new_strategy = evolutionary_runner.run_one_generation(
-                st.session_state.simulation, 
-                st.session_state.strategies,
-                ui_placeholders
-            )
-            st.session_state.simulation = new_state
-            
-            if new_strategy:
-                st.session_state.strategies.append(new_strategy)
-                st.toast(f"✨ New strategy evolved: '{new_strategy['name']}'!", icon="🧬")
-
-            if new_results:
-                append_results_to_log(new_results, "results/jailbreak_log.jsonl")
-                st.session_state.results.extend(new_results)
-                st.session_state.results = sorted(st.session_state.results, key=lambda x: x.get("timestamp", ""), reverse=True)
-            
-            # Check for completion condition
-            if len(st.session_state.simulation.get("solutions", [])) >= st.session_state.simulation.get("solutions_to_find", 3):
-                st.session_state.simulation['is_running'] = False
-                st.session_state.simulation['is_complete'] = True
-                st.success(f"Simulation Complete: Found {len(st.session_state.simulation['solutions'])} solutions!")
-            
-            st.rerun()
-
-        # --- DISPLAY SIMULATION STATE ---
+        # --- UNIFIED SIMULATION DISPLAY & EXECUTION LOGIC ---
         if st.session_state.simulation.get('task'):
+            # This is now the single source of truth for the simulation UI.
+            
+            # PART 1: Define all UI elements, including placeholders for live data.
             st.header(f"📈 Live Simulation Status for Task: `{st.session_state.simulation['task']['id']}`")
-            if st.session_state.simulation.get('is_complete'):
-                st.success(f"Simulation Complete! Found {len(st.session_state.simulation.get('solutions', []))} stable solutions.")
-            elif st.session_state.simulation['is_paused']:
-                st.success("Simulation Paused")
+            
+            # Container for messages (e.g., complete, paused, running)
+            status_container = st.container()
 
-            stat_cols = st.columns(3)
-            stat_cols[0].metric("Current Generation", st.session_state.simulation['generation'])
-            stat_cols[1].metric("Solutions Found", f"{len(st.session_state.simulation.get('solutions', []))} / {st.session_state.simulation.get('solutions_to_find', 3)}")
-            stat_cols[2].metric("Elites from Last Gen", len(st.session_state.simulation.get('elites', [])))
+            # Container for live progress and stats that update during a run
+            live_display_container = st.container(border=True)
+            with live_display_container:
+                progress_text_ph = st.empty()
+                progress_bar_ph = st.empty()
+                live_cols = st.columns(3)
+                avg_score_ph = live_cols[0].empty()
+                top_score_ph = live_cols[1].empty()
+                success_rate_ph = live_cols[2].empty()
 
+            # Overall simulation metrics (generation #, solutions, etc.)
+            overall_stat_cols = st.columns(3)
+            overall_stat_cols[0].metric("Current Generation", st.session_state.simulation['generation'])
+            overall_stat_cols[1].metric("Solutions Found", f"{len(st.session_state.simulation.get('solutions', []))} / {st.session_state.simulation.get('solutions_to_find', 3)}")
+            overall_stat_cols[2].metric("Elites from Last Gen", len(st.session_state.simulation.get('elites', [])))
+
+            # Dataframes and charts
             res_col, strat_col = st.columns([3, 2])
             with res_col:
                 st.subheader("🎯 Current Generation Results")
@@ -231,7 +211,7 @@ if page == "🔥 Red Teaming":
                     df_pool = pd.DataFrame(st.session_state.simulation['current_pool'])
                     st.dataframe(df_pool[['strategy_name', 'final_rating', 'crafted_jailbreak_prompt']], use_container_width=True, height=300)
                 else:
-                    st.info("Waiting to start simulation...")
+                    st.info("Waiting for first generation to complete.")
             with strat_col:
                 st.subheader("📊 Strategy Weights")
                 if st.session_state.simulation.get('strategy_weights'):
@@ -245,7 +225,8 @@ if page == "🔥 Red Teaming":
                     st.bar_chart(df_weights)
                 else:
                     st.info("Weights will appear after the first generation.")
-
+            
+            # Display found solutions
             st.subheader("🏆 Found Solutions")
             if st.session_state.simulation.get('solutions'):
                 for i, sol in enumerate(st.session_state.simulation['solutions']):
@@ -258,9 +239,56 @@ if page == "🔥 Red Teaming":
             else:
                 st.info("Solutions that achieve a perfect score three times will be listed here.")
 
+            # PART 2: Execute the simulation logic if it's running.
+            if st.session_state.simulation['is_running'] and not st.session_state.simulation['is_paused']:
+                with status_container:
+                     st.subheader(f"🧬 Running Generation {st.session_state.simulation['generation'] + 1}")
+                
+                # Bundle placeholders to pass to the backend runner function
+                ui_placeholders = {
+                    "progress_text": progress_text_ph, "progress_bar": progress_bar_ph,
+                    "avg_score": avg_score_ph, "top_score": top_score_ph,
+                    "success_rate": success_rate_ph,
+                }
+
+                # This function contains the loop and updates the UI via the placeholders
+                new_state, new_results, new_strategy = evolutionary_runner.run_one_generation(
+                    st.session_state.simulation, 
+                    st.session_state.strategies,
+                    ui_placeholders
+                )
+                st.session_state.simulation = new_state
+                
+                if new_strategy:
+                    st.session_state.strategies.append(new_strategy)
+                    st.toast(f"✨ New strategy evolved: '{new_strategy['name']}'!", icon="🧬")
+
+                if new_results:
+                    append_results_to_log(new_results, "results/jailbreak_log.jsonl")
+                    st.session_state.results.extend(new_results)
+                    st.session_state.results = sorted(st.session_state.results, key=lambda x: x.get("timestamp", ""), reverse=True)
+                
+                # Check for completion condition
+                if len(st.session_state.simulation.get("solutions", [])) >= st.session_state.simulation.get("solutions_to_find", 3):
+                    st.session_state.simulation['is_running'] = False
+                    st.session_state.simulation['is_complete'] = True
+                    with status_container:
+                        st.success(f"Simulation Complete: Found {len(st.session_state.simulation['solutions'])} solutions!")
+                
+                st.rerun()
+
+            # PART 3: Display status messages when not actively running.
+            else:
+                with status_container:
+                    if st.session_state.simulation.get('is_complete'):
+                        st.success(f"Simulation Complete! Found {len(st.session_state.simulation.get('solutions', []))} stable solutions.")
+                    elif st.session_state.simulation['is_paused']:
+                        st.info("Simulation Paused")
+
+
     # --- SHARED RESULTS DISPLAY ---
     st.markdown("---")
-    st.header("📜 Test Logs & Visualizations")
+    st.header("📋 Test Logs & Visualizations")
     
     # This placeholder is for the main visualizations, which will be updated by the profiling run
     visuals_placeholder_main = st.empty()
