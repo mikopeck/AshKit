@@ -60,9 +60,16 @@ if page == "🔥 Red Teaming":
                 st.session_state.stop_run = False
                 st.rerun()
 
+        # --- VISUALS & LOGS DISPLAY (NOW PERSISTENT) ---
+        visuals_placeholder = st.empty()
+        if st.session_state.results:
+            update_visuals(visuals_placeholder, st.session_state.results)
+        else:
+            with visuals_placeholder.container():
+                st.info("No results yet. Run a test to generate data.")
+
         # --- PROFILING EXECUTION LOGIC ---
         if st.session_state.profiling_in_progress:
-            visuals_placeholder = st.empty()
             tasks_to_run = st.session_state.tasks
             strategies_to_apply = st.session_state.strategies
             total_runs = len(tasks_to_run) * len(strategies_to_apply)
@@ -159,10 +166,10 @@ if page == "🔥 Red Teaming":
         
         if is_sim_active:
              if ctrl_cols[2].button("⏹️ Stop & Reset", use_container_width=True):
-                st.session_state.simulation = evolutionary_runner.initialize_simulation_state()
-                st.session_state.strategies = load_strategies()
-                st.warning("Discovery engine stopped and reset by user.")
-                st.rerun()
+                 st.session_state.simulation = evolutionary_runner.initialize_simulation_state()
+                 st.session_state.strategies = load_strategies()
+                 st.warning("Discovery engine stopped and reset by user.")
+                 st.rerun()
 
         st.markdown("---")
 
@@ -188,6 +195,42 @@ if page == "🔥 Red Teaming":
             overall_stat_cols[2].metric("Active Strategies", active_strats)
 
             res_col, strat_col = st.columns([3, 2])
+            
+            # --- ADDED: SIMULATION EXECUTION LOGIC ---
+            if st.session_state.simulation.get('is_running'):
+                sim_state = st.session_state.simulation
+                all_strategies = st.session_state.strategies
+
+                # Setup UI placeholders for the evolutionary runner
+                ui_placeholders = {
+                    "progress_text": progress_text_ph,
+                    "progress_bar": progress_bar_ph,
+                    "avg_score": avg_score_ph,
+                    "top_score": top_score_ph,
+                    "success_rate": success_rate_ph
+                }
+
+                # Run one generation
+                new_state, new_results, newly_saved = evolutionary_runner.run_one_generation(sim_state, all_strategies, ui_placeholders)
+
+                # Update state
+                st.session_state.simulation = new_state
+                st.session_state.strategies.extend(newly_saved)
+
+                # Log new results and update UI data
+                if new_results:
+                    append_results_to_log(new_results, "results/jailbreak_log.jsonl")
+                    st.session_state.results = load_results_log("results/jailbreak_log.jsonl")
+
+                # Auto-pause if all solutions are found
+                if len(st.session_state.simulation.get('solutions', [])) >= st.session_state.simulation.get('solutions_to_find', 3):
+                    st.session_state.simulation['is_running'] = False
+                    st.session_state.simulation['is_paused'] = True
+                    st.toast("Target number of solutions found. Pausing.")
+
+                time.sleep(1) # Small delay to make UI responsive
+                st.rerun()
+
 
 # FIX: Added routing to render the management page when selected.
 elif page == "🗂️ Manage Data":
