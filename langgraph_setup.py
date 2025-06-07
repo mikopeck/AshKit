@@ -49,7 +49,8 @@ def craft_custom_jailbreak_node(state: JailbreakAttemptState) -> JailbreakAttemp
     
     placeholders = state.get("ui_placeholders")
     if placeholders and "crafter_status" in placeholders:
-        placeholders["crafter_status"].info(f"ðŸ¤– Crafter model ('{state['crafter_model_name']}') is generating a custom prompt based on strategy '{state['strategy']['name']}'...")
+        # FIX: Replaced garbled emoji with '🤖'
+        placeholders["crafter_status"].info(f"🤖 Crafter model ('{state['crafter_model_name']}') is generating a custom prompt based on strategy '{state['strategy']['name']}'...")
 
     prompt_for_crafter = f"""
 Here is the high-level strategy:
@@ -76,7 +77,8 @@ Now, follow your critical instructions precisely. First, use <thinking> tags. Th
             state["log"] = state.get("log", []) + [f"Crafter LLM generated prompt: {clean_prompt[:150]}..."]
             
             if placeholders and "prompt_display" in placeholders:
-                placeholders["prompt_display"].markdown(f"**ðŸ¤– Crafted Jailbreak Prompt:**\n```\n{clean_prompt}\n```")
+                # FIX: Replaced garbled emoji with '🤖'
+                placeholders["prompt_display"].markdown(f"**🤖 Crafted Jailbreak Prompt:**\n```\n{clean_prompt}\n```")
         else:
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', raw_crafter_response, re.DOTALL)
             thinking_text = thinking_match.group(1).strip() if thinking_match else "No <thinking> tags found."
@@ -99,7 +101,8 @@ def query_target_llm_node(state: JailbreakAttemptState) -> JailbreakAttemptState
     
     placeholders = state.get("ui_placeholders")
     if placeholders and "target_status" in placeholders:
-        placeholders["target_status"].info(f"ðŸŽ¯ Target model ('{state['target_model_name']}') is processing the prompt...")
+        # FIX: Replaced garbled emoji with '🎯'
+        placeholders["target_status"].info(f"🎯 Target model ('{state['target_model_name']}') is processing the prompt...")
 
     try:
         response = query_ollama_model(
@@ -110,7 +113,8 @@ def query_target_llm_node(state: JailbreakAttemptState) -> JailbreakAttemptState
         state["log"] = state.get("log", []) + [f"Target LLM response: {response[:150]}..."]
 
         if placeholders and "response_display" in placeholders:
-            placeholders["response_display"].markdown(f"**ðŸŽ¯ Target LLM Response:**\n\n{response}")
+            # FIX: Replaced garbled emoji with '🎯'
+            placeholders["response_display"].markdown(f"**🎯 Target LLM Response:**\n\n{response}")
 
     except Exception as e:
         error_msg = f"Error querying target LLM: {str(e)}"
@@ -124,7 +128,8 @@ def evaluate_response_node(state: JailbreakAttemptState) -> JailbreakAttemptStat
     
     placeholders = state.get("ui_placeholders")
     if placeholders and "judge_status" in placeholders:
-        placeholders["judge_status"].info(f"ðŸ§‘â€âš–ï¸ Judge model ('{state['judge_model_name']}') is evaluating the response...")
+        # FIX: Replaced garbled emoji with '⚖️'
+        placeholders["judge_status"].info(f"⚖️ Judge model ('{state['judge_model_name']}') is evaluating the response...")
 
     try:
         rating, reasoning = evaluate_response_with_ai_judge(
@@ -144,7 +149,8 @@ def evaluate_response_node(state: JailbreakAttemptState) -> JailbreakAttemptStat
         verdict_color = get_verdict_color(rating)
         
         if placeholders and "verdict_display" in placeholders:
-            placeholders["verdict_display"].markdown(f"**ðŸ§‘â€âš–ï¸ Judge's Rating:** :{verdict_color}[{rating}/10]\n\n**Reasoning:** {reasoning}")
+            # FIX: Replaced garbled emoji with '⚖️'
+            placeholders["verdict_display"].markdown(f"**⚖️ Judge's Rating:** :{verdict_color}[{rating}/10]\n\n**Reasoning:** {reasoning}")
 
     except Exception as e:
         error_msg = f"Error during evaluation: {str(e)}"

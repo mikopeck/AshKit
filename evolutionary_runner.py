@@ -4,7 +4,7 @@ import hashlib
 import uuid
 import time
 from typing import List, Dict, Any, Tuple, Optional
-import streamlit as st # <-- FIXED: Import Streamlit to use st.toast
+import streamlit as st 
 
 from graph_runner import run_single_jailbreak_attempt
 from utils import combine_and_craft_strategy, add_strategy, load_strategies
@@ -123,7 +123,7 @@ def run_one_generation(state: Dict[str, Any], all_strategies: List[Dict[str, Any
         state['strategy_weights'][new_id] = avg_weight
         
         prompts_to_run.append({"strategy": newly_created_strategy})
-        st.toast(f"🧬 Evolved: '{newly_created_strategy['name']}'!", icon="🧬") # <-- FIXED EMOJI
+        st.toast(f"🧬 Evolved: '{newly_created_strategy['name']}'!", icon="🧬")
 
 
     # --- 2. RUN TESTS FOR THE ENTIRE POOL ---
@@ -184,7 +184,7 @@ def run_one_generation(state: Dict[str, Any], all_strategies: List[Dict[str, Any
             strat_meta['failures'] += 1
             if strat_meta['failures'] >= 3:
                 strat_meta['status'] = 'eliminated'
-                st.toast(f"🚫 Strategy '{result.get('strategy_name')}' eliminated!", icon="🚫") # <-- FIXED EMOJI
+                st.toast(f"🚫 Strategy '{result.get('strategy_name')}' eliminated!", icon="🚫")
         
         if rating >= 8 and strat_meta['is_new'] and strat_meta['status'] != 'saved':
             try:
@@ -196,7 +196,8 @@ def run_one_generation(state: Dict[str, Any], all_strategies: List[Dict[str, Any
                         strat_meta['status'] = 'saved'
                         strat_meta['is_new'] = False
                         newly_saved_strategies.append(new_strategy_data)
-                        st.toast(f"💾 New strategy '{result.get('strategy_name')}' saved! (Score: {rating})", icon="✅") # <-- FIXED EMOJI
+                        # FIX: Changed broken emoji icon 'âœ…' to '✅'
+                        st.toast(f"💾 New strategy '{result.get('strategy_name')}' saved! (Score: {rating})", icon="✅")
             except Exception as e:
                 print(f"Error auto-saving strategy: {e}")
 

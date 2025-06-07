@@ -1,8 +1,6 @@
 # app.py
 import streamlit as st
-import pandas as pd
-import uuid
-import json
+import time
 
 from utils import load_tasks, load_strategies, load_results_log, append_results_to_log, add_strategy
 from graph_runner import run_single_jailbreak_attempt
@@ -32,12 +30,13 @@ def stop_profiling_callback():
 # --- Sidebar ---
 with st.sidebar:
     st.header("⚙️ Core Configuration")
-    crafter_model_name = st.text_input("Crafter Model", value="qwen2:7b")
-    target_model_name = st.text_input("Target Model", value="qwen2:7b")
-    judge_model_name = st.text_input("Judge Model", value="qwen2:7b")
+    crafter_model_name = st.text_input("Crafter Model", value="qwen3:8b")
+    target_model_name = st.text_input("Target Model", value="qwen3:8b")
+    judge_model_name = st.text_input("Judge Model", value="qwen3:8b")
     st.markdown("---")
     
-    page = st.radio("Navigation", ["🔥 Red Teaming", "🗂️ Manage Data"])
+    # FIX: Replaced radio buttons with a selectbox for cleaner navigation
+    page = st.selectbox("Navigation", ["🔥 Red Teaming", "🗂️ Manage Data"])
     st.markdown("---")
     st.info("AshKit is an open-source tool for LLM vulnerability research. Use it ethically and responsibly.")
 
@@ -189,3 +188,7 @@ if page == "🔥 Red Teaming":
             overall_stat_cols[2].metric("Active Strategies", active_strats)
 
             res_col, strat_col = st.columns([3, 2])
+
+# FIX: Added routing to render the management page when selected.
+elif page == "🗂️ Manage Data":
+    render_management_page(crafter_model_name)
