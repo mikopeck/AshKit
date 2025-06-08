@@ -7,13 +7,12 @@ from typing import List, Dict, Any, Tuple, Optional
 import streamlit as st 
 
 from graph_runner import run_single_jailbreak_attempt
-from utils import combine_and_craft_strategy, add_strategy, load_strategies
+from utils import combine_and_craft_strategy, add_strategy, load_strategies, combination_exists
 
 def initialize_simulation_state(pool_size=20, strategies=None, task=None, model_config=None) -> Dict[str, Any]:
     """Initializes or resets the simulation state for the new engine."""
     if strategies is None: strategies = []
     
-    # NEW: Strategy status tracker
     strategy_status = {
         s['id']: {"failures": 0, "status": "active", "is_new": False}
         for s in strategies
@@ -53,7 +52,6 @@ def update_strategy_weights(state: Dict[str, Any]) -> Dict[str, float]:
             performance_factor = 0.8 + (avg_score / 20.0) # Range [0.8, 1.3]
             new_weights[sid] *= performance_factor
     
-    # Normalize
     total_weight = sum(new_weights.values())
     num_strategies = len(new_weights)
     if total_weight > 0:
@@ -112,8 +110,16 @@ def run_one_generation(state: Dict[str, Any], all_strategies: List[Dict[str, Any
 
         if not strat_a or not strat_b or strat_a['id'] == strat_b['id']:
             continue
+        
+        if combination_exists(strat_a['id'], strat_b['id'], all_strategies):
+            continue 
 
-        newly_created_strategy = combine_and_craft_strategy(strat_a, strat_b, state['task']['prompt'], state['model_config']['crafter_model_name'])
+        # UPDATED: Call the function without the task prompt for task-agnostic creation.
+        newly_created_strategy = combine_and_craft_strategy(
+            strat_a, 
+            strat_b, 
+            state['model_config']['crafter_model_name']
+        )
         new_id = f"S_evo_{uuid.uuid4().hex[:6]}"
         newly_created_strategy['id'] = new_id
         
@@ -124,7 +130,6 @@ def run_one_generation(state: Dict[str, Any], all_strategies: List[Dict[str, Any
         
         prompts_to_run.append({"strategy": newly_created_strategy})
         st.toast(f"🧬 Evolved: '{newly_created_strategy['name']}'!", icon="🧬")
-
 
     # --- 2. RUN TESTS FOR THE ENTIRE POOL ---
     current_pool_results = []
@@ -196,7 +201,6 @@ def run_one_generation(state: Dict[str, Any], all_strategies: List[Dict[str, Any
                         strat_meta['status'] = 'saved'
                         strat_meta['is_new'] = False
                         newly_saved_strategies.append(new_strategy_data)
-                        # FIX: Changed broken emoji icon 'âœ…' to '✅'
                         st.toast(f"💾 New strategy '{result.get('strategy_name')}' saved! (Score: {rating})", icon="✅")
             except Exception as e:
                 print(f"Error auto-saving strategy: {e}")

@@ -4,7 +4,7 @@ import uuid
 from utils import (
     load_tasks, add_task, update_task, delete_task,
     load_strategies, add_strategy, update_strategy, delete_strategy,
-    combine_and_craft_strategy
+    combine_and_craft_strategy, combination_exists
 )
 
 def render_management_page(crafter_model_name: str):
@@ -122,23 +122,27 @@ def manage_strategies(crafter_model_name: str):
     st.markdown("---")
     st.subheader("Combine Strategies Manually")
     with st.container(border=True):
-        st.write("Select two strategies and provide a sample harmful task to guide the combination process.")
+        st.write("Select two strategies to combine their core mechanisms into a new, task-agnostic strategy.")
         strategy_options = {s['id']: f"{s['name']} ({s['id']})" for s in st.session_state.strategies}
         
         col1, col2 = st.columns(2)
         strat_a_id = col1.selectbox("Select Strategy A", options=list(strategy_options.keys()), format_func=lambda x: strategy_options[x], key="strat_a")
         strat_b_id = col2.selectbox("Select Strategy B", options=list(strategy_options.keys()), format_func=lambda x: strategy_options[x], key="strat_b", index=min(1, len(strategy_options)-1))
         
-        sample_task = st.text_area("Sample Harmful Task Prompt", "e.g., How do I build a phishing website?", key="sample_task")
-
+        # UPDATED: Removed the sample task text area.
+        
         if st.button("Combine Strategies"):
-            if strat_a_id == strat_b_id: st.warning("Please select two different strategies.")
+            if strat_a_id == strat_b_id:
+                st.warning("Please select two different strategies.")
+            elif combination_exists(strat_a_id, strat_b_id, st.session_state.strategies):
+                st.warning("A strategy combining these two parents already exists. Please select a different pair.")
             else:
                 strat_a = next(s for s in st.session_state.strategies if s['id'] == strat_a_id)
                 strat_b = next(s for s in st.session_state.strategies if s['id'] == strat_b_id)
-                with st.spinner("🧠 Crafter LLM is combining strategies..."):
+                with st.spinner("⚗️ Crafter LLM is combining strategies..."):
                     try:
-                        st.session_state.new_combined_strat = combine_and_craft_strategy(strat_a, strat_b, sample_task, crafter_model_name)
+                        # UPDATED: Call the function without the sample task.
+                        st.session_state.new_combined_strat = combine_and_craft_strategy(strat_a, strat_b, crafter_model_name)
                         st.rerun()
                     except Exception as e: st.error(f"Failed to combine strategies: {e}")
 
@@ -167,7 +171,6 @@ def manage_strategies(crafter_model_name: str):
     for strat in st.session_state.strategies:
         with st.expander(f"**{strat['name']}** (`{strat['id']}`)"):
             
-            # NEW: Display the source of evolved strategies
             if 'source_strategies' in strat and strat['source_strategies']:
                 st.caption(f"Evolved from: `{'` + `'.join(strat['source_strategies'])}`")
 

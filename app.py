@@ -164,11 +164,11 @@ if page == "🔥 Red Teaming":
                 st.rerun()
         
         if is_sim_active:
-             if ctrl_cols[2].button("⏹️ Stop & Reset", use_container_width=True):
-                 st.session_state.simulation = evolutionary_runner.initialize_simulation_state()
-                 st.session_state.strategies = load_strategies()
-                 st.warning("Discovery engine stopped and reset by user.")
-                 st.rerun()
+            if ctrl_cols[2].button("⏹️ Stop & Reset", use_container_width=True):
+                st.session_state.simulation = evolutionary_runner.initialize_simulation_state()
+                st.session_state.strategies = load_strategies()
+                st.warning("Discovery engine stopped and reset by user.")
+                st.rerun()
 
         st.markdown("---")
 
@@ -210,10 +210,8 @@ if page == "🔥 Red Teaming":
 
                 st.session_state.simulation = new_state
                 
-                # BUGFIX: Do not extend the strategies list here. 
-                # The runner already appends the new strategy to the list by reference.
-                # Extending it again creates the duplicate that causes the key error.
-                # st.session_state.strategies.extend(newly_saved)
+                # The logic for appending new strategies is now correctly handled inside the runner.
+                # No action is needed here, preventing the old bug.
 
                 if new_results:
                     append_results_to_log(new_results, "results/jailbreak_log.jsonl")
