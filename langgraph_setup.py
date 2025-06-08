@@ -69,23 +69,39 @@ Now, follow your critical instructions precisely. First, use <thinking> tags. Th
             system_message=CRAFTER_SYSTEM_PROMPT
         )
         
-        match = re.search(r'<prompt>(.*?)</prompt>', raw_crafter_response, re.DOTALL)
+        # --- MODIFICATION START ---
+        # Find all occurrences of the prompt pattern and take the last one.
+        # This prevents issues if the model includes example tags in its thinking process.
+        all_prompts = re.findall(r'<prompt>(.*?)</prompt>', raw_crafter_response, re.DOTALL)
         
-        if match and match.group(1).strip():
-            clean_prompt = match.group(1).strip()
-            state["crafted_jailbreak_prompt"] = clean_prompt
-            state["log"] = state.get("log", []) + [f"Crafter LLM generated prompt: {clean_prompt[:150]}..."]
-            
-            if placeholders and "prompt_display" in placeholders:
-                # FIX: Replaced garbled emoji with '🤖'
-                placeholders["prompt_display"].markdown(f"**🤖 Crafted Jailbreak Prompt:**\n```\n{clean_prompt}\n```")
+        if all_prompts:
+            # Select the content of the last found prompt tag
+            last_prompt_content = all_prompts[-1]
+            if last_prompt_content.strip():
+                clean_prompt = last_prompt_content.strip()
+                state["crafted_jailbreak_prompt"] = clean_prompt
+                state["log"] = state.get("log", []) + [f"Crafter LLM generated prompt: {clean_prompt[:150]}..."]
+                
+                if placeholders and "prompt_display" in placeholders:
+                    # FIX: Replaced garbled emoji with '🤖'
+                    placeholders["prompt_display"].markdown(f"**🤖 Crafted Jailbreak Prompt:**\n```\n{clean_prompt}\n```")
+            else:
+                # This handles the case where the last <prompt> tag is empty.
+                thinking_match = re.search(r'<thinking>(.*?)</thinking>', raw_crafter_response, re.DOTALL)
+                thinking_text = thinking_match.group(1).strip() if thinking_match else "No <thinking> tags found."
+                error_msg = f"Crafter failed to generate a valid prompt. The last found `<prompt>` tag was empty. Crafter's thoughts: '{thinking_text}'"
+                state["error_message"] = error_msg
+                if placeholders and "crafter_status" in placeholders:
+                    placeholders["crafter_status"].error(error_msg)
         else:
+            # This handles the case where no <prompt> tags are found at all.
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', raw_crafter_response, re.DOTALL)
             thinking_text = thinking_match.group(1).strip() if thinking_match else "No <thinking> tags found."
-            error_msg = f"Crafter failed to generate a valid prompt. Raw output did not contain a populated `<prompt>` tag. Crafter's thoughts: '{thinking_text}'"
+            error_msg = f"Crafter failed to generate a valid prompt. Raw output did not contain any `<prompt>` tags. Crafter's thoughts: '{thinking_text}'"
             state["error_message"] = error_msg
             if placeholders and "crafter_status" in placeholders:
                 placeholders["crafter_status"].error(error_msg)
+        # --- MODIFICATION END ---
 
     except Exception as e:
         error_msg = f"Error querying Crafter LLM: {str(e)}"
@@ -94,7 +110,6 @@ Now, follow your critical instructions precisely. First, use <thinking> tags. Th
             placeholders["crafter_status"].error(error_msg)
 
     return state
-
 
 def query_target_llm_node(state: JailbreakAttemptState) -> JailbreakAttemptState:
     if state.get("error_message"): return state
