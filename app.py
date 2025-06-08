@@ -29,15 +29,16 @@ def stop_profiling_callback():
 
 # --- Sidebar ---
 with st.sidebar:
+    page = st.selectbox("Navigation", ["🔥 Red Teaming", "🗂️ Manage Data"])
+    st.markdown("---")
+    st.info("AshKit is an open-source tool for LLM vulnerability research. Use it ethically and responsibly.")
+    st.markdown("---")
+
     st.header("⚙️ Core Configuration")
     crafter_model_name = st.text_input("Crafter Model", value="qwen3:8b")
     target_model_name = st.text_input("Target Model", value="qwen3:8b")
     judge_model_name = st.text_input("Judge Model", value="qwen3:8b")
-    st.markdown("---")
     
-    page = st.selectbox("Navigation", ["🔥 Red Teaming", "🗂️ Manage Data"])
-    st.markdown("---")
-    st.info("AshKit is an open-source tool for LLM vulnerability research. Use it ethically and responsibly.")
 
 # --- Page Routing ---
 if page == "🔥 Red Teaming":
